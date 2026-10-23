@@ -28,4 +28,6 @@ Install Ollama and a model on this computer, then use **Find local models** in t
 
 Candidate model connections and placements are separate from the facts read from the inventory. Treat AI output as a draft and have a network architect validate it before implementation.
 
+To bound local model prompts, the model receives at most the first 100 named devices, 200 explicit connections, and 60 requirement rows. The report, diagrams, and configuration guide still include all extracted inventory rows; the generated report identifies any model-context limits.
+
 The inventory mapper recognizes common header names for device/hostname, site/location, role, vendor, model, platform/OS, management IP, serial number, source/target device, endpoint ports, link type, bandwidth, site requirements, connectivity constraints, business rules, capacity, and resilience. Unrecognized columns remain visible in the app preview but do not affect topology generation.

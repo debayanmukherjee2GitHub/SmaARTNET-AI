@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from inventory import InventoryError, load_inventory
+from inventory import InventoryError, load_inventory_sections
 
 
 ALIASES = {
@@ -24,8 +24,8 @@ ALIASES = {
     "platform": ("platform", "operating_system", "os", "software", "software_version", "firmware", "firmware_version"),
     "management_ip": ("management_ip", "management_address", "mgmt_ip", "ip_address", "ip"),
     "serial": ("serial", "serial_number", "service_tag"),
-    "source": ("source", "source_device", "src", "from_device", "local_device"),
-    "target": ("target", "target_device", "destination", "destination_device", "dst", "to_device", "remote_device", "neighbor"),
+    "source": ("source", "source_device", "src", "from_device", "local_device", "source_node", "source_endpoint", "from", "device_a", "endpoint_a"),
+    "target": ("target", "target_device", "destination", "destination_device", "dst", "to_device", "remote_device", "neighbor", "target_node", "target_endpoint", "to", "device_b", "endpoint_b"),
     "source_port": ("source_port", "src_port", "local_port", "from_port"),
     "target_port": ("target_port", "destination_port", "dst_port", "remote_port", "to_port"),
     "link_type": ("link_type", "connection_type", "media", "interface_type"),
@@ -50,9 +50,10 @@ ROLE_WORDS = {
 
 def build_blueprint(source_path: str | Path, output_dir: str | Path, model: str = "") -> list[Path]:
     """Generate a report, diagrams, and a configuration guide from a local file."""
-    headers, rows = load_inventory(source_path)
+    (headers, rows), (connection_headers, connection_rows) = load_inventory_sections(source_path)
     fields = _field_columns(headers)
-    nodes, links, warnings = _analyze(rows, fields)
+    connection_fields = _field_columns(connection_headers)
+    nodes, links, warnings = _analyze(rows, fields, connection_rows, connection_fields)
     site_inputs = _site_inputs(rows, fields)
     local_design, ai_status = _local_design(rows, fields, nodes, links, site_inputs, model.strip())
 
@@ -64,7 +65,9 @@ def build_blueprint(source_path: str | Path, output_dir: str | Path, model: str 
         "processing_mode": "offline",
         "source_file": source.name,
         "row_count": len(rows),
+        "connection_row_count": len(connection_rows),
         "columns": headers,
+        "connection_columns": connection_headers,
         "recognized_columns": fields,
         "devices": nodes,
         "connections": links,
@@ -121,7 +124,12 @@ def _field_columns(headers: list[str]) -> dict[str, str]:
     return resolved
 
 
-def _analyze(rows: list[dict[str, str]], fields: dict[str, str]) -> tuple[list[dict[str, str]], list[dict[str, str]], list[str]]:
+def _analyze(
+    rows: list[dict[str, str]],
+    fields: dict[str, str],
+    connection_rows: list[dict[str, str]] | None = None,
+    connection_fields: dict[str, str] | None = None,
+) -> tuple[list[dict[str, str]], list[dict[str, str]], list[str]]:
     nodes: list[dict[str, str]] = []
     links: list[dict[str, str]] = []
     warnings: list[str] = []
@@ -134,15 +142,10 @@ def _analyze(rows: list[dict[str, str]], fields: dict[str, str]) -> tuple[list[d
             item["row_number"] = str(index + 1)
             item["reference_id"] = f"{device.casefold()}#{index + 1}"
             nodes.append(item)
-        source = row.get(fields.get("source", ""), "").strip()
-        target = row.get(fields.get("target", ""), "").strip()
-        if source and target:
-            link = {"source": source, "target": target}
-            for key in ("source_port", "target_port", "link_type", "bandwidth"):
-                column = fields.get(key)
-                if column and row.get(column, "").strip():
-                    link[key] = row[column].strip()
-            links.append(link)
+        _append_connection(row, fields, links)
+
+    for row in connection_rows or []:
+        _append_connection(row, connection_fields or {}, links)
 
     known: dict[str, int] = Counter(node["device"].casefold() for node in nodes)
     display_names = {node["device"].casefold(): node["device"] for node in nodes}
@@ -175,6 +178,23 @@ def _analyze(rows: list[dict[str, str]], fields: dict[str, str]) -> tuple[list[d
     return nodes, links, list(dict.fromkeys(warnings))
 
 
+def _append_connection(
+    row: dict[str, str], fields: dict[str, str], links: list[dict[str, str]],
+) -> None:
+    source_column = fields.get("source")
+    target_column = fields.get("target")
+    source = row.get(source_column, "").strip() if source_column else ""
+    target = row.get(target_column, "").strip() if target_column else ""
+    if not source or not target:
+        return
+    link = {"source": source, "target": target}
+    for key in ("source_port", "target_port", "link_type", "bandwidth"):
+        column = fields.get(key)
+        if column and row.get(column, "").strip():
+            link[key] = row[column].strip()
+    links.append(link)
+
+
 def _site_inputs(rows: list[dict[str, str]], fields: dict[str, str]) -> list[dict[str, str]]:
     input_fields = ("site_requirements", "connectivity_constraints", "business_rules", "capacity_requirements", "resilience_requirements")
     inputs: list[dict[str, str]] = []
@@ -205,7 +225,8 @@ def _report(data: dict[str, Any]) -> str:
         "# SmaARTNET-AI Network Blueprint", "",
         f"**Input:** `{data['source_file']}`  ",
         f"**Processing:** Offline on this computer  ",
-        f"**Inventory rows:** {data['row_count']}  **Named devices:** {len(devices)}  **Explicit connections:** {len(links)}", "",
+        f"**Inventory rows:** {data['row_count']}  **Named devices:** {len(devices)}  **Explicit connections:** {len(links)}  ",
+        f"**Connections sheet rows:** {data.get('connection_row_count', 0)}", "",
         "> Draft blueprint. Review the input coverage and validate all design decisions before deployment.", "",
         "## 1. Device placement and site topology", "",
     ]

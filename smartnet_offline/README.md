@@ -10,7 +10,7 @@ Install Python 3.10 or newer with Tk support, then run:
 python app.py
 ```
 
-Choose a `.csv` or `.xlsx` inventory file to see its row count, column count, blank-cell count, and a preview of up to 100 rows. Only the first worksheet of an `.xlsx` file is read. Legacy `.xls` files are not supported.
+Choose a `.csv` or `.xlsx` inventory file to see its row count, column count, blank-cell count, and a preview of up to 100 inventory rows. For an `.xlsx` workbook, the app reads the `Inventory` and `Connections` worksheets by name (case-insensitive). If `Inventory` is absent, the first worksheet is used as the inventory table; the `Connections` worksheet is optional. Legacy `.xls` files are not supported.
 
 Choose an output folder and select **Generate offline blueprint**. The application creates:
 
@@ -20,7 +20,7 @@ Choose an output folder and select **Generate offline blueprint**. The applicati
 - `configuration_guide.csv` — export-ready device/platform planning fields from the inventory.
 - `blueprint_data.json` — normalized data and generation status.
 
-The analyzer does not invent topology links or move devices between sites. If explicit endpoint columns are absent, it reports that connections were not provided. The configuration guide does not emit vendor commands; those require approved customer standards and platform-specific design rules.
+The `Inventory` worksheet provides named devices and device details. The `Connections` worksheet provides explicit links; it should have source and target endpoint columns such as `Source` and `Target`, with endpoint values matching names in the inventory. The analyzer does not invent topology links or move devices between sites. If explicit endpoint columns are absent, it reports that connections were not provided. The configuration guide does not emit vendor commands; those require approved customer standards and platform-specific design rules.
 
 ## Optional local AI
 

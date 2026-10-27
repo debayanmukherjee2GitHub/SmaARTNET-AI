@@ -4,7 +4,7 @@ SmaARTNET-AI is an offline desktop tool for turning local network inventory file
 
 ## Run from VS Code
 
-1. Open `C:\Users\debpe\Documents\SmaARTNET-AI` in VS Code with **File → Open Folder**.
+1. Open `SmaARTNET-AI` in VS Code with **File → Open Folder**.
 2. Open **Terminal → New Terminal**.
 3. Run:
 
